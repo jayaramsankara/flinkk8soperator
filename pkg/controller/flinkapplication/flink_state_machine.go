@@ -11,11 +11,11 @@ import (
 
 	"fmt"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
-	"github.com/lyft/flinkk8soperator/pkg/controller/config"
-	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
-	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
-	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
+	"github.com/jayaramsankara/flinkk8soperator/pkg/apis/app/v1beta1"
+	"github.com/jayaramsankara/flinkk8soperator/pkg/controller/config"
+	"github.com/jayaramsankara/flinkk8soperator/pkg/controller/flink"
+	"github.com/jayaramsankara/flinkk8soperator/pkg/controller/flink/client"
+	"github.com/jayaramsankara/flinkk8soperator/pkg/controller/k8"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"

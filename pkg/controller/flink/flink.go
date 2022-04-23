@@ -423,7 +423,8 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 		return err
 	}
 
-	oldObjects := make([]metav1.Object, 0)
+	oldDeploymentObjects := make([]metav1.Object, 0)
+	oldServiceObjects := make([]metav1.Object, 0)
 
 	for _, d := range deployments.Items {
 		if d.Labels[FlinkAppHash] != "" &&
@@ -431,7 +432,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 			// verify that this deployment matches the jobmanager or taskmanager naming format
 			(d.Name == fmt.Sprintf(JobManagerNameFormat, app.Name, d.Labels[FlinkAppHash]) ||
 				d.Name == fmt.Sprintf(TaskManagerNameFormat, app.Name, d.Labels[FlinkAppHash])) {
-			oldObjects = append(oldObjects, d.DeepCopy())
+			oldDeploymentObjects = append(oldDeploymentObjects, d.DeepCopy())
 		}
 	}
 
@@ -444,23 +445,48 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 		if d.Labels[FlinkAppHash] != "" &&
 			d.Labels[FlinkAppHash] != curHash &&
 			d.Name == VersionedJobManagerServiceName(app, d.Labels[FlinkAppHash]) {
-			oldObjects = append(oldObjects, d.DeepCopy())
+			oldServiceObjects = append(oldServiceObjects, d.DeepCopy())
 		}
 	}
 
-	deletedHashes := make(map[string]bool)
+	deletedDeploymentHashes := make(map[string]bool)
 
-	for _, resource := range oldObjects {
-		err := f.k8Cluster.DeleteK8Object(ctx, resource.(runtime.Object))
+	for _, deployment := range oldDeploymentObjects {
+		err := f.k8Cluster.DeleteK8Object(ctx, deployment.(runtime.Object))
 		if err != nil {
 			f.metrics.deleteResourceFailedCounter.Inc(ctx)
 			return err
 		}
+
 		f.metrics.deleteResourceSuccessCounter.Inc(ctx)
-		deletedHashes[resource.GetLabels()[FlinkAppHash]] = true
+		deletedDeploymentHashes[deployment.GetLabels()[FlinkAppHash]] = true
 	}
 
-	for k := range deletedHashes {
+	for k := range deletedDeploymentHashes {
+		f.LogEvent(ctx, app, corev1.EventTypeNormal, "ToreDownCluster",
+			fmt.Sprintf("Deleted old cluster with hash %s", k))
+	}
+	deletedServiceHashes := make(map[string]bool)
+
+	for _, service := range oldServiceObjects {
+		err := f.k8Cluster.DeleteK8Object(ctx, service.(runtime.Object))
+		if err != nil {
+			f.metrics.deleteResourceFailedCounter.Inc(ctx)
+			return err
+		}
+		// If resouece is a service, do a getService  and if servuce exists, sleep for sometime, do a get again and if its present, error out.
+		// For now a simple solution is to introduce a 15 second sleep.
+
+		// Calling Sleep method
+		logger.Infof(ctx, "Deleted the service successfully. Sleeping for 15 seconds for any caches with k8s infra to be cleared. The sleep time is a random experimental value.")
+		time.Sleep(15 * time.Second)
+		logger.Infof(ctx, "Deleted the service successfully. Sleep done")
+
+		f.metrics.deleteResourceSuccessCounter.Inc(ctx)
+		deletedServiceHashes[service.GetLabels()[FlinkAppHash]] = true
+	}
+
+	for k := range deletedServiceHashes {
 		f.LogEvent(ctx, app, corev1.EventTypeNormal, "ToreDownCluster",
 			fmt.Sprintf("Deleted old cluster with hash %s", k))
 	}
