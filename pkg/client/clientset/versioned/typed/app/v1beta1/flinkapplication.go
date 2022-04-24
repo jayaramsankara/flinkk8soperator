@@ -3,6 +3,7 @@
 package v1beta1
 
 import (
+	"fmt"
 	"time"
 
 	v1beta1 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
@@ -118,22 +119,29 @@ func (c *flinkApplications) Update(flinkApplication *v1beta1.FlinkApplication) (
 
 // Delete takes name of the flinkApplication and deletes it. Returns an error if one occurs.
 func (c *flinkApplications) Delete(name string, options *v1.DeleteOptions) error {
-	return c.client.Delete().
+	fmt.Printf("%v DS-8253 Deleting the flinkApplication %s\n", time.Now(), name)
+	errVal := c.client.Delete().
 		Namespace(c.ns).
 		Resource("flinkapplications").
 		Name(name).
 		Body(options).
 		Do().
 		Error()
+	fmt.Printf("%v DS-8253 Sleeping for 15 seconds\n", time.Now())
+	time.Sleep(15 * time.Second)
+	fmt.Printf("%v DS-8253 Sleep DONE\n", time.Now())
+	return errVal
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *flinkApplications) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+
 	var timeout time.Duration
 	if listOptions.TimeoutSeconds != nil {
 		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
 	}
-	return c.client.Delete().
+	fmt.Println("DS-8253 Deleting the collection of flinkApplications .")
+	errVal := c.client.Delete().
 		Namespace(c.ns).
 		Resource("flinkapplications").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
@@ -141,6 +149,10 @@ func (c *flinkApplications) DeleteCollection(options *v1.DeleteOptions, listOpti
 		Body(options).
 		Do().
 		Error()
+	fmt.Printf("%v DS-8253 Sleeping for 15 seconds\n", time.Now())
+	time.Sleep(15 * time.Second)
+	fmt.Printf("%v DS-8253 Sleep DONE\n", time.Now())
+	return errVal
 }
 
 // Patch applies the patch and returns the patched flinkApplication.

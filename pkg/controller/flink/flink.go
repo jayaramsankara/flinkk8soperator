@@ -478,9 +478,9 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 		// For now a simple solution is to introduce a 15 second sleep.
 
 		// Calling Sleep method
-		logger.Infof(ctx, "Deleted the service successfully. Sleeping for 15 seconds for any caches with k8s infra to be cleared. The sleep time is a random experimental value.")
+		logger.Infof(ctx, " DS-8253  Deleted the service successfully. Sleeping for 15 seconds for any caches with k8s infra to be cleared. The sleep time is a random experimental value.")
 		time.Sleep(15 * time.Second)
-		logger.Infof(ctx, "Deleted the service successfully. Sleep done")
+		logger.Infof(ctx, " DS-8253 Deleted the service successfully. Sleep done")
 
 		f.metrics.deleteResourceSuccessCounter.Inc(ctx)
 		deletedServiceHashes[service.GetLabels()[FlinkAppHash]] = true
