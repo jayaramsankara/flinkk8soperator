@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
@@ -423,8 +423,8 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 		return err
 	}
 
-	oldDeploymentObjects := make([]metav1.Object, 0)
-	oldServiceObjects := make([]metav1.Object, 0)
+	oldDeploymentObjects := make([]k8sclient.Object, 0)
+	oldServiceObjects := make([]k8sclient.Object, 0)
 
 	for _, d := range deployments.Items {
 		if d.Labels[FlinkAppHash] != "" &&
@@ -452,7 +452,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 	deletedDeploymentHashes := make(map[string]bool)
 
 	for _, deployment := range oldDeploymentObjects {
-		err := f.k8Cluster.DeleteK8Object(ctx, deployment.(runtime.Object))
+		err := f.k8Cluster.DeleteK8Object(ctx, deployment)
 		if err != nil {
 			f.metrics.deleteResourceFailedCounter.Inc(ctx)
 			return err
@@ -469,7 +469,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 	deletedServiceHashes := make(map[string]bool)
 
 	for _, service := range oldServiceObjects {
-		err := f.k8Cluster.DeleteK8Object(ctx, service.(runtime.Object))
+		err := f.k8Cluster.DeleteK8Object(ctx, service)
 		if err != nil {
 			f.metrics.deleteResourceFailedCounter.Inc(ctx)
 			return err
@@ -919,7 +919,7 @@ func (f *Controller) DeleteResourcesForAppWithHash(ctx context.Context, app *v1b
 		return err
 	}
 
-	oldObjects := make([]metav1.Object, 0)
+	oldObjects := make([]k8sclient.Object, 0)
 
 	for _, d := range deployments.Items {
 		if d.Labels[FlinkAppHash] == hash &&
@@ -945,7 +945,7 @@ func (f *Controller) DeleteResourcesForAppWithHash(ctx context.Context, app *v1b
 	deletedHashes := make(map[string]bool)
 
 	for _, resource := range oldObjects {
-		err := f.k8Cluster.DeleteK8Object(ctx, resource.(runtime.Object))
+		err := f.k8Cluster.DeleteK8Object(ctx, resource)
 		if err != nil {
 			f.metrics.deleteResourceFailedCounter.Inc(ctx)
 			return err
