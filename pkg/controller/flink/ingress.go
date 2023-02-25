@@ -8,9 +8,8 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
-	"k8s.io/api/extensions/v1beta1"
+	networkingV1 "k8s.io/api/networking/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const AppIngressName = "%s-%s"
@@ -25,7 +24,7 @@ func GetFlinkUIIngressURL(jobName string) string {
 	return ReplaceJobURL(config.GetConfig().FlinkIngressURLFormat, jobName)
 }
 
-func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.Ingress {
+func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *networkingV1.Ingress {
 	podLabels := common.DuplicateMap(app.Labels)
 	podLabels = common.CopyMap(podLabels, k8.GetAppLabel(app.Name))
 
@@ -38,30 +37,34 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 		},
 	}
 
-	backend := v1beta1.IngressBackend{
-		ServiceName: getJobManagerServiceName(app),
-		ServicePort: intstr.IntOrString{
-			Type:   intstr.Int,
-			IntVal: getUIPort(app),
+	ingressServiceBackend := networkingV1.IngressServiceBackend{
+		Name: getJobManagerServiceName(app),
+		Port: networkingV1.ServiceBackendPort{
+			Number: getUIPort(app),
 		},
 	}
 
-	ingressSpec := v1beta1.IngressSpec{
-		Rules: []v1beta1.IngressRule{{
+	backend := networkingV1.IngressBackend{
+		Service: &ingressServiceBackend,
+	}
+	pathType := networkingV1.PathType("ImplementationSpecific")
+	ingressSpec := networkingV1.IngressSpec{
+		Rules: []networkingV1.IngressRule{{
 			Host: GetFlinkUIIngressURL(getIngressName(app)),
-			IngressRuleValue: v1beta1.IngressRuleValue{
-				HTTP: &v1beta1.HTTPIngressRuleValue{
-					Paths: []v1beta1.HTTPIngressPath{{
-						Backend: backend,
+			IngressRuleValue: networkingV1.IngressRuleValue{
+				HTTP: &networkingV1.HTTPIngressRuleValue{
+					Paths: []networkingV1.HTTPIngressPath{{
+						Backend:  backend,
+						PathType: &pathType,
 					}},
 				},
 			},
 		}},
 	}
-	return &v1beta1.Ingress{
+	return &networkingV1.Ingress{
 		ObjectMeta: ingressMeta,
 		TypeMeta: v1.TypeMeta{
-			APIVersion: v1beta1.SchemeGroupVersion.String(),
+			APIVersion: networkingV1.SchemeGroupVersion.String(),
 			Kind:       k8.Ingress,
 		},
 		Spec: ingressSpec,

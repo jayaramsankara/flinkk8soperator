@@ -11,7 +11,7 @@ import (
 	integFramework "github.com/lyft/flinkk8soperator/integ/utils"
 	controllerConfig "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	flyteConfig "github.com/lyft/flytestdlib/config"
-	"github.com/prometheus/common/log"
+	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

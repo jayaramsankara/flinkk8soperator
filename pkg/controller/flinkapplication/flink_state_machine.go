@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"fmt"
-
 	"github.com/jayaramsankara/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/jayaramsankara/flinkk8soperator/pkg/controller/config"
 	"github.com/jayaramsankara/flinkk8soperator/pkg/controller/flink"
