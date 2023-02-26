@@ -133,7 +133,7 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.Fli
 	if updateStatus {
 		now := v1.NewTime(s.clock.Now())
 		application.Status.LastUpdatedAt = &now
-		updateAppErr := s.k8Cluster.UpdateStatus(ctx, application)
+		updateAppErr := s.k8Cluster.UpdateStatus(ctx, application.DeepCopy())
 		if updateAppErr != nil {
 			s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
 			return updateAppErr
@@ -163,16 +163,29 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 
 	if s.IsTimeToHandlePhase(application, appPhase) {
 		if !v1beta1.IsRunningPhase(application.Status.Phase) {
-			logger.Infof(ctx, "Handling state for application")
+			logger.Infof(ctx, "Handling state for application IsChange")
 		}
+		logger.Infof(ctx, "Application %s", application)
+		logger.Infof(ctx, "Application Status %s", application.Status)
+		logger.Infof(ctx, "Application Status Phase %s", application.Status.Phase)
 		switch application.Status.Phase {
 		case v1beta1.FlinkApplicationNew, v1beta1.FlinkApplicationUpdating:
 			// Currently just transitions to the next state
+			logger.Infof(ctx, "Starting handleNewOrUpdating Method")
 			updateApplication, appErr = s.handleNewOrUpdating(ctx, application)
-		case v1beta1.FlinkApplicationClusterStarting:
+			logger.Infof(ctx, "Completed handleNewOrUpdating Method Application status %s", application.Status.Phase)
+
+			//case v1beta1.FlinkApplicationClusterStarting:
+			time.Sleep(30 * time.Second)
+			logger.Infof(ctx, "Starting handleClusterStarting Method")
 			updateApplication, appErr = s.handleClusterStarting(ctx, application)
-		case v1beta1.FlinkApplicationSubmittingJob:
+			logger.Infof(ctx, "Completed handleClusterStarting Method")
+
+			logger.Infof(ctx, "Starting handleSubmittingJob Method")
+			//case v1beta1.FlinkApplicationSubmittingJob:
 			updateApplication, appErr = s.handleSubmittingJob(ctx, application)
+			logger.Infof(ctx, "Completed handleSubmittingJob Method")
+
 		case v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed:
 			updateApplication, appErr = s.handleApplicationRunning(ctx, application)
 		case v1beta1.FlinkApplicationCancelling:
@@ -287,17 +300,20 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	// Wait for all to be running
 	clusterReady, err := s.flinkController.IsClusterReady(ctx, application)
 	if err != nil || !clusterReady {
+		logger.Infof(ctx, "CUSTOM_LOG IsClusterReady failed %s", err)
 		return statusUnchanged, err
 	}
 
 	// ignore the error, we just care whether it's ready or not
 	serviceReady, _ := s.flinkController.IsServiceReady(ctx, application, flink.HashForApplication(application))
 	if !serviceReady {
+		logger.Infof(ctx, "CUSTOM_LOG Failed Inside isServiceReady")
 		return statusUnchanged, nil
 	}
 
 	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		// Update hashes
+		logger.Infof(ctx, "CUSTOM_LOG Inside IsBlueGreenDeploymentMode")
 		s.flinkController.UpdateLatestVersionAndHash(application, application.Status.UpdatingVersion, flink.HashForApplication(application))
 
 	}
