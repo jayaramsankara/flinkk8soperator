@@ -3,9 +3,9 @@
 package v1beta1
 
 import (
+	"net/http"
 	v1beta1 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/scheme"
-	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -29,14 +29,26 @@ func NewForConfig(c *rest.Config) (*FlinkV1beta1Client, error) {
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
 	}
-	client, err := rest.RESTClientFor(&config)
+	httpClient, err := rest.HTTPClientFor(&config)
+	if err != nil {
+		return nil, err
+	}
+	return NewForConfigAndClient(&config, httpClient)
+}
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*FlinkV1beta1Client, error) {
+	config := *c
+	if err := setConfigDefaults(&config); err != nil {
+		return nil, err
+	}
+	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
 	}
 	return &FlinkV1beta1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new FlinkV1beta1Client for the given config and
+
+	// NewForConfigOrDie creates a new FlinkV1beta1Client for the given config and
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *FlinkV1beta1Client {
 	client, err := NewForConfig(c)
@@ -55,7 +67,7 @@ func setConfigDefaults(config *rest.Config) error {
 	gv := v1beta1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

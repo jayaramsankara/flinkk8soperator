@@ -75,7 +75,7 @@ func (t *TaskManagerController) CreateIfNotExist(ctx context.Context, applicatio
 	hash := HashForApplication(application)
 
 	taskManagerDeployment := FetchTaskMangerDeploymentCreateObj(application, hash)
-	err := t.k8Cluster.CreateK8Object(ctx, taskManagerDeployment)
+	err := t.k8Cluster.CreateK8Object(ctx, taskManagerDeployment.DeepCopy())
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
 			logger.Errorf(ctx, "Taskmanager deployment creation failed %v", err)

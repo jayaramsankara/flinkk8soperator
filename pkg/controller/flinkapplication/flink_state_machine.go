@@ -129,12 +129,14 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.Fli
 	defer timer.Stop()
 	updateStatus, err := s.handle(ctx, application)
 
+	logger.Infof(ctx, "After Handle Method phase is %s", application.Status.Phase.VerboseString())
 	// Update k8s object
 	if updateStatus {
 		now := v1.NewTime(s.clock.Now())
 		application.Status.LastUpdatedAt = &now
 		updateAppErr := s.k8Cluster.UpdateStatus(ctx, application.DeepCopy())
 		if updateAppErr != nil {
+			logger.Errorf(ctx, "Error in updation of application %s", updateAppErr)
 			s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
 			return updateAppErr
 		}
@@ -163,43 +165,51 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 
 	if s.IsTimeToHandlePhase(application, appPhase) {
 		if !v1beta1.IsRunningPhase(application.Status.Phase) {
-			logger.Infof(ctx, "Handling state for application IsChange")
+			logger.Infof(ctx, "Handling state for application")
 		}
-		logger.Infof(ctx, "Application %s", application)
-		logger.Infof(ctx, "Application Status %s", application.Status)
-		logger.Infof(ctx, "Application Status Phase %s", application.Status.Phase)
+		logger.Infof(ctx, "Application Status Phase -%s-", application.Status.Phase)
 		switch application.Status.Phase {
 		case v1beta1.FlinkApplicationNew, v1beta1.FlinkApplicationUpdating:
 			// Currently just transitions to the next state
-			logger.Infof(ctx, "Starting handleNewOrUpdating Method")
+			logger.Infof(ctx, "IGNORE Starting handleNewOrUpdating Method")
 			updateApplication, appErr = s.handleNewOrUpdating(ctx, application)
-			logger.Infof(ctx, "Completed handleNewOrUpdating Method Application status %s", application.Status.Phase)
-
-			//case v1beta1.FlinkApplicationClusterStarting:
-			time.Sleep(30 * time.Second)
-			logger.Infof(ctx, "Starting handleClusterStarting Method")
+			logger.Infof(ctx, "IGNORE Completed handleNewOrUpdating Method Application status %s", application.Status.Phase)
+		case v1beta1.FlinkApplicationClusterStarting:
+			logger.Infof(ctx, "IGNORE Starting handleClusterStarting Method")
 			updateApplication, appErr = s.handleClusterStarting(ctx, application)
-			logger.Infof(ctx, "Completed handleClusterStarting Method")
-
-			logger.Infof(ctx, "Starting handleSubmittingJob Method")
-			//case v1beta1.FlinkApplicationSubmittingJob:
+			logger.Infof(ctx, "IGNORE Completed handleClusterStarting Method")
+		case v1beta1.FlinkApplicationSubmittingJob:
+			logger.Infof(ctx, "IGNORE Starting handleSubmittingJob Method")
 			updateApplication, appErr = s.handleSubmittingJob(ctx, application)
-			logger.Infof(ctx, "Completed handleSubmittingJob Method")
-
+			logger.Infof(ctx, "IGNORE Completed handleSubmittingJob Method")
 		case v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed:
+			logger.Infof(ctx, "IGNORE Starting handleApplicationRunning Method")
 			updateApplication, appErr = s.handleApplicationRunning(ctx, application)
+			logger.Infof(ctx, "IGNORE Completed handleApplicationRunning Method")
 		case v1beta1.FlinkApplicationCancelling:
+			logger.Infof(ctx, "IGNORE Starting handleApplicationCancelling Method")
 			updateApplication, appErr = s.handleApplicationCancelling(ctx, application)
+			logger.Infof(ctx, "IGNORE Completed handleApplicationCancelling Method")
 		case v1beta1.FlinkApplicationSavepointing:
+			logger.Infof(ctx, "IGNORE Starting handleApplicationSavepointing Method")
 			updateApplication, appErr = s.handleApplicationSavepointing(ctx, application)
+			logger.Infof(ctx, "IGNORE Completed handleApplicationSavepointing Method")
 		case v1beta1.FlinkApplicationRecovering:
+			logger.Infof(ctx, "IGNORE Starting handleApplicationRecovering Method")
 			updateApplication, appErr = s.handleApplicationRecovering(ctx, application)
+			logger.Infof(ctx, "IGNORE Completed handleApplicationRecovering Method")
 		case v1beta1.FlinkApplicationRollingBackJob:
+			logger.Infof(ctx, "IGNORE Starting handleRollingBack Method")
 			updateApplication, appErr = s.handleRollingBack(ctx, application)
+			logger.Infof(ctx, "IGNORE Completed handleRollingBack Method")
 		case v1beta1.FlinkApplicationDeleting:
+			logger.Infof(ctx, "IGNORE Starting handleApplicationDeleting Method")
 			updateApplication, appErr = s.handleApplicationDeleting(ctx, application)
+			logger.Infof(ctx, "IGNORE Completed handleApplicationDeleting Method")
 		case v1beta1.FlinkApplicationDualRunning:
+			logger.Infof(ctx, "IGNORE Starting handleDualRunning Method")
 			updateApplication, appErr = s.handleDualRunning(ctx, application)
+			logger.Infof(ctx, "IGNORE Completed handleDualRunning Method")
 
 		}
 
@@ -551,10 +561,18 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 		return errors.New("service does not exist")
 	}
 
+	deployments, err := s.flinkController.GetDeploymentsForHash(ctx, app, newHash)
+	if deployments == nil {
+		return errors.New("Could not find deployments for service " + service.Name)
+	}
+	if err != nil {
+		return err
+	}
+
 	if service.Spec.Selector[flink.FlinkAppHash] != newHash {
 		// the service hasn't yet been updated
 		service.Spec.Selector[flink.FlinkAppHash] = newHash
-		err = s.k8Cluster.UpdateK8Object(ctx, service)
+		err = s.k8Cluster.UpdateK8Object(ctx, service.DeepCopy())
 		if err != nil {
 			return err
 		}
@@ -796,7 +814,7 @@ func (s *FlinkStateMachine) addFinalizerIfMissing(ctx context.Context, applicati
 
 	// finalizer not present; add
 	application.Finalizers = append(application.Finalizers, finalizer)
-	return s.k8Cluster.UpdateK8Object(ctx, application)
+	return s.k8Cluster.UpdateK8Object(ctx, application.DeepCopy())
 }
 
 func removeString(list []string, target string) []string {
@@ -812,7 +830,8 @@ func removeString(list []string, target string) []string {
 
 func (s *FlinkStateMachine) clearFinalizers(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	app.Finalizers = removeString(app.Finalizers, jobFinalizer)
-	return statusUnchanged, s.k8Cluster.UpdateK8Object(ctx, app)
+	logger.Infof(ctx, "Inside clearFinalizers")
+	return statusUnchanged, s.k8Cluster.UpdateK8Object(ctx, app.DeepCopy())
 }
 
 func jobFinished(job *client.FlinkJobOverview) bool {
@@ -830,6 +849,8 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 
 	// If the delete mode is none or there's no deployhash set (which means we failed to submit the job on the
 	// first deploy) just delete the finalizer so the cluster can be torn down
+	app.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
+
 	if app.Spec.DeleteMode == v1beta1.DeleteModeNone || app.Status.DeployHash == "" {
 		return s.clearFinalizers(ctx, app)
 	}

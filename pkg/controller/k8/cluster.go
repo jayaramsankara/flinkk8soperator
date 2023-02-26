@@ -2,6 +2,7 @@ package k8
 
 import (
 	"context"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
@@ -197,13 +198,18 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object client.Object) erro
 		}
 		return err
 	}
+	logger.Infof(ctx, "Deletion Success")
 	k.metrics.updateSuccess.Inc(ctx)
 	return nil
 }
 
 func (k *Cluster) UpdateStatus(ctx context.Context, object client.Object) error {
+	instance := object.(*v1beta1.FlinkApplication)
+	logger.Infof(ctx, "Printing Object %s", object)
+	logger.Infof(ctx, "Before k.client.Status().Update to %s", instance.Status.Phase)
 	err := k.client.Status().Update(ctx, object)
 	if err != nil {
+		logger.Errorf(ctx, "Found Error %s", err)
 		if errors.IsInvalid(err) {
 			// This is a Kubernetes bug that has been fixed in k8s 1.15
 			// https://github.com/kubernetes/kubernetes/pull/78713
@@ -236,6 +242,7 @@ func (k *Cluster) UpdateStatus(ctx context.Context, object client.Object) error 
 		return err
 	}
 	k.metrics.updateSuccess.Inc(ctx)
+
 	return nil
 }
 

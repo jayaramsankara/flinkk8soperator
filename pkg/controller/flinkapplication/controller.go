@@ -55,15 +55,18 @@ func newReconcilerMetrics(scope promutils.Scope) *reconcilerMetrics {
 }
 
 func (r *ReconcileFlinkApplication) getResource(ctx context.Context, key types.NamespacedName, obj client.Object) error {
-	err := r.cache.Get(ctx, key, obj)
-	if err != nil && k8.IsK8sObjectDoesNotExist(err) {
-		r.metrics.cacheMiss.Inc(ctx)
-		return r.client.Get(ctx, key, obj)
-	}
-	if err == nil {
-		r.metrics.cacheHit.Inc(ctx)
-	}
-	return err
+	return r.client.Get(ctx, key, obj)
+	//err := r.cache.Get(ctx, key, obj)
+	//if err != nil && k8.IsK8sObjectDoesNotExist(err) {
+	//	r.metrics.cacheMiss.Inc(ctx)
+	//	logger.Infof(ctx, "Fetching from Client %s", key)
+	//	return r.client.Get(ctx, key, obj)
+	//}
+	//if err == nil {
+	//	logger.Infof(ctx, "Fetching from cache %s", key)
+	//	r.metrics.cacheHit.Inc(ctx)
+	//}
+	//return err
 }
 
 // For failures, we do not want to retry immediately, as we want the underlying resource to recover.
@@ -94,6 +97,7 @@ func (r *ReconcileFlinkApplication) Reconcile(ctx context.Context, request recon
 	}
 
 	err := r.getResource(ctx, request.NamespacedName, instance)
+	logger.Infof(ctx, "Fetched Phase from k8s is %s", instance.Status.Phase)
 	if err != nil {
 		if k8.IsK8sObjectDoesNotExist(err) {
 			// Request object not found, could have been deleted after reconcile request.
